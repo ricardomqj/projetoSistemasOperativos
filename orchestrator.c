@@ -1,98 +1,137 @@
-#include <unistd.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include <string.h>
 #include <sys/wait.h>
 
-int mysystem (const char* command) {
+#define MAX_SIZE 300
 
-	int res = -1;
+typedef struct package {
+    char command[MAX_SIZE + 1];
+	pid_t pid;
+} Package;
 
-	char* exec_args[20];
-	char* string, *tofree, *cmd;
-	int i = 0, status;
-
-	//copia string
-	tofree = cmd = strdup(command);
-
-	while((string = strsep(&cmd, " ")) != NULL){
-		exec_args[i] = string;
-		i++;
-	} 
-
-	exec_args[i] = NULL;
-
-	pid_t pid = fork();
-
-	switch(pid){
-	case -1:{
-		//código em caso de erro
-		perror("erro no fork");
-		res = -1;
-		break;
-	}
-	case 0:{
-		//código do processo filho
-		//printf("FILHO | vou executar o %s\n", exec_args[0]);
-		int res = execvp(exec_args[0], exec_args);
-		_exit(res);
-	}
-
-	default:{
-		//código do processo pai
-		wait(&status);
-		res = WEXITSTATUS(status);
-		if(WIFEXITED(status)){
-			printf("PAI | o filho %d devolveu %d\n", pid,res);
-		}else{
-			res = -1;
-			printf("PAI | o filho não terminou corretamente\n");
-		}
-		break;
-	}
-	}
-
-	free(tofree);
-
-
-	return res;
-}
-
-void orchestrator(int N, char* commands[]){
-
+void exec_command(int N, char* command){
+	printf("entrei em exec_command com argumento command igual a -> %s\n", command);
 	pid_t pid;
 	int pids[N];
-	int i, status, res;
+	int i, status, res, j = 0;
+	char *cmd[N];
 
+	char *token = strtok(command, " ");
+	
+	while(token != NULL) {
+		cmd[j] = token;
+		printf("passei em cdm[%d] o token com valor -> %s\n", j, token);
+		token = strtok(NULL, " ");
+		j++;
+	}
+	cmd[j] = NULL;
+	execvp(cmd[0], cmd);
+	perror("execvp");
+
+	/*
 	for(i = 0; i < N; i++){
 		if((pid = fork()) == 0){
-			execvp(commands[i], commands);
+			execvp(commands[i], &commands[i]);
 			_exit(i);
 		} 
-	}
+	} */
 	
-	printf("PAI: Vou esperar pelos processos filho\n");
-
+	/*
 	for(int i = 0; i < N; i++){
-		waitpid(pids[i], &status, NULL);
-	}
+		waitpid(pids[i], &status, 0);
+	}*/
 
-
-
-	return 0;
 }
+/*
+void add_client(pid_t pid, char *command, int client_id, Client *clients) {
+	Client *new_client = (Client*)malloc(sizeof(Client));
+	new_client->id = client_id;
+	new_client->pid = pid;
+	new_client->packages = (Package*)malloc(sizeof(Package));
+	strcpy(new_client->packages->command, command);
+	new_client->packages->next = NULL;
+	new_client->next = NULL;
+	clients = new_client;
+} */
 
 int main(int argc, char *argv[])
 {
 	int i, N = 0;
-	char *commands[argc-1];
+	int id = 0; // variável usada para associar um id aos clientes
+	//char *commands[2];
+	pid_t pid;
 	
-	for(i = 0; i < argc; i++){
-		commands[N] = strdup(argv[i]);
-		N++;
+	if(mkfifo("fifoOrchCli", 0666) == -1 || mkfifo("fifoCliOrch", 0666) == -1) {
+		perror("mkfifo");
+		_exit(1);
 	}
 
-	orchestrator(N, *commands[N]);
+	int fdFifoOrchCli = open("fifoOrchCli", O_WRONLY);
+	int fdFifoCliOrch = open("fifoCliOrch", O_RDONLY);
 
+	/*
+	for(i = 1; i < argc; i++){
+		printf("Dentro do ciclo for -> argv[%d] = %s\n", i, argv[i]);
+		commands[N] = strdup(argv[i]);
+		N++;
+	} */
+
+	while(1) {
+		char buffer[MAX_SIZE + 1];
+		read(fdFifoCliOrch, buffer, MAX_SIZE);
+		pid_t client_pid;
+		char buffer_copy[MAX_SIZE + 1];
+		Package pack;
+		read(fdFifoCliOrch, &pack, sizeof(Package));
+		printf("Estrutura do pack recebido: \n");
+		printf("pack.command -> %s\n", pack.command);
+		printf("pack.pid -> %d\n", pack.pid);
+		strcpy(buffer_copy, buffer);
+		id++;
+		char *token = strtok(buffer, " ");
+		int i = 0;
+		while(token != NULL) {
+			token = strtok(NULL, " ");
+			i++;
+		}
+		exec_command(i, pack.command);
+	}
+	/*
+	Package pack = malloc(sizeof(struct package));
+	printf("vou ler do fifo\n");
+	pid = fork();
+	if(pid == -1) {
+		perror("fork");
+		_exit(1);
+	} else if (pid == 0) {
+		// código do processo filho
+		char buffer[MAX_SIZE + 1];
+		char buffer_copy[MAX_SIZE + 1];
+		read(fdFifoCliOrch, &buffer, sizeof(pack->command));
+		printf("Recebi do client o comando: %s\n", buffer);
+		strcpy(buffer_copy, buffer);
+		char *token = strtok(buffer, " ");
+		int i = 0;
+		while(token != NULL) {
+			token = strtok(NULL, " ");
+			i++;
+		}
+		printf("antes de entrar em exec_command com '%s'\n", buffer_copy);
+		exec_command(i, buffer_copy);
+
+	} else {
+		// código do processo pai
+		printf("parei de ler do fifo\n");
+		printf("Comando recebido do cliente -> %s\n", pack->command);
+		free(pack);
+	}
+
+	//orchestrator(N, commands[N]);*/
 
 	return 0;
 }
