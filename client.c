@@ -33,9 +33,6 @@ int main(int argc, char *argv[]) {
 
     if(strcmp(argv[1], "execute") == 0) {
         if(strcmp(argv[3], "-u") == 0) {
-            //Package pack = malloc(sizeof(struct package));
-            //strcpy(pack->command, argv[4]);
-            //printf("guardei em pack->command : [%s]\n", pack->command);
             pid = fork();
             if(pid == -1) {
                 perror("fork");
@@ -59,14 +56,6 @@ int main(int argc, char *argv[]) {
                     perror("write");
                     _exit(1);
                 }
-                
-                
-                //printf("vou envar para o orchestrator o command -> %s\n", pack->command);
-                //printf("sizeof(pack->command) = %d\n", (int)sizeof(pack->command));
-                /*if(write(fdFifoCliOrch, pack->command, sizeof(pack->command)) < 0) {
-                    perror("write");
-                    _exit(1);
-                } */
             } 
         }
     }
