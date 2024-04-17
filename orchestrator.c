@@ -12,10 +12,69 @@
 typedef struct package {
     char command[MAX_SIZE + 1];
 	pid_t pid;
+	struct package *next;
 } Package;
 
+typedef struct client {
+	pid_t client_pid;
+	Package *packages;
+	struct client *next;
+} Client;
+
+
+void add_package(Client **head, Package pack) {
+    Client *current = *head;
+	while(current != NULL) {
+		if(current->client_pid == pack.pid) {
+			Package *new_package = (Package *)malloc(sizeof(Package));
+			if(new_package == NULL) {
+				perror("malloc");
+				_exit(1);
+			}
+			strcpy(new_package->command, pack.command);
+			new_package->pid = pack.pid;
+			new_package->next = current->packages;
+			current->packages = new_package;
+			return;
+		}
+		current = current->next;
+	}
+
+	// Caso não encontre um cliente com o PID correspondente, cria um novo cliente
+	Client *new_node = (Client *)malloc(sizeof(Client));
+	Package *new_package = (Package *)malloc(sizeof(Package));
+	if(new_node == NULL || new_package == NULL) {
+		perror("malloc");
+		_exit(1);
+	}
+	strcpy(new_package->command, pack.command);
+	new_package->pid = pack.pid;
+	new_package->next = NULL;
+	new_node->packages = new_package;
+	new_node->client_pid = pack.pid;
+	new_node->next = *head;
+	*head = new_node;
+}
+
+// Função para imprimir todos os pacotes na lista de clientes
+void print_clients(Client *head) {
+    printf("\n_____________________\nLista de comandos recebidos:\n");
+    Client *current = head;
+    while (current != NULL) {
+        printf("Recebido do cliente com PID %d\n", current->client_pid);
+		Package *current_package = current->packages;
+		while(current_package != NULL) {
+			printf("Client PID: %d\n", current_package->pid);
+			printf("Command: %s\n", current_package->command);
+			printf("____________________\n");
+			current_package = current_package->next;
+		}
+        current = current->next;
+		printf("_______________________\n");
+    }
+}
+
 void exec_command(int N, char* command){
-	printf("entrei em exec_command com argumento command igual a -> %s\n", command);
 	pid_t pid;
 	int pids[N];
 	int i, status, res, j = 0;
@@ -25,32 +84,23 @@ void exec_command(int N, char* command){
 	
 	while(token != NULL) {
 		cmd[j] = token;
-		printf("passei em cdm[%d] o token com valor -> %s\n", j, token);
 		token = strtok(NULL, " ");
 		j++;
 	}
 	cmd[j] = NULL;
 	execvp(cmd[0], cmd);
 	perror("execvp");
+	_exit(1);
 }
-/*
-void add_client(pid_t pid, char *command, int client_id, Client *clients) {
-	Client *new_client = (Client*)malloc(sizeof(Client));
-	new_client->id = client_id;
-	new_client->pid = pid;
-	new_client->packages = (Package*)malloc(sizeof(Package));
-	strcpy(new_client->packages->command, command);
-	new_client->packages->next = NULL;
-	new_client->next = NULL;
-	clients = new_client;
-} */
 
 int main(int argc, char *argv[])
 {
 	int N = 0;
 	int id = 0; // variável usada para associar um id aos clientes
 	pid_t pid;
-	
+
+	Client *client_list = NULL;
+
 	if(mkfifo("fifoOrchCli", 0666) == -1 || mkfifo("fifoCliOrch", 0666) == -1) {
 		perror("mkfifo");
 		_exit(1);
@@ -71,13 +121,8 @@ int main(int argc, char *argv[])
 			printf("pack.command -> %s\n", pack.command);
 			printf("pack.pid -> %d\n", pack.pid);
 			id++;
-			/*
-			char *token = strtok(buffer, " ");
-			int i = 0;
-			while(token != NULL) {
-				token = strtok(NULL, " ");
-				i++;
-			} */
+			//add_package(&client_list, pack);
+			//print_clients(client_list);
 			pid_t pid = fork();
 			if(pid == -1) {
 				perror("fork");
@@ -89,7 +134,11 @@ int main(int argc, char *argv[])
 			} else {
 				// processo pai
 				int status;
-				wait(&status);
+				waitpid(pid, &status, 0);
+				if(WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+					add_package(&client_list, pack);
+					print_clients(client_list);
+				}
 			}
 		}
 	}
