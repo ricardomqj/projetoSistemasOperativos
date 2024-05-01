@@ -126,8 +126,31 @@ int main(int argc, char *argv[]) {
                 perror("fork");
                 _exit(1);
             } else if(pid == 0) {
-                printf("Pipelining not implemented yet...\n");
-                _exit(1);
+                pid_t pid_filho = getpid();
+                char fifoName[32];
+                sprintf(fifoName, "tmp/fifo%d", pid_filho);
+                mkfifo(fifoName, 0666);
+                Package pack;
+                strcpy(pack.command, argv[4]);
+                pack.pid = pid_filho;
+                pack.id = -1;
+                pack.command_type = EXECUTE_MULT_COMMANDS;
+                pack.next = NULL;
+                if(write(fdFifoCliOrch, &pack, sizeof(Package)) < 0) {
+                    perror("write");
+                    _exit(1);
+                }   
+                int fdFifoOrchCli = open(fifoName, O_RDONLY);
+                if(fdFifoOrchCli == -1) {
+                    perror("open");
+                    _exit(1);
+                }
+                int id_received_buffer;
+                if(read(fdFifoOrchCli, &id_received_buffer, sizeof(int)) < 0) {
+                    perror("read");
+                    _exit(1);
+                }
+                printf("ID recebido: %d\n", id_received_buffer);
             }
         } else {
             printf("Invalid option. Use '-u' or '-p'...\n");

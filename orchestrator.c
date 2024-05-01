@@ -152,6 +152,87 @@ void exec_command(int N, char* command){
 	_exit(1);
 }
 
+void exec_pipelining(char* arg)
+{
+    char *command = strtok(arg, "|");
+    char **commands = malloc(sizeof(char *) * 2200);
+
+    int number_of_commands = 0;
+
+    while(command != NULL)
+    {
+        if(*command == ' ')
+        {
+            command++;
+        }
+        //printf("%s\n",command);
+        commands[number_of_commands] = command;
+        number_of_commands++;
+        command =strtok(NULL, "|");
+    }
+
+    //number_of_commands = 4;
+
+    int pipes[number_of_commands-1][2];
+
+    //printf("%d\n",number_of_commands);
+    for(int i = 0;i<number_of_commands;i++){
+        
+        if(i==0){
+            pipe(pipes[0]);
+            int fres = fork();
+            if(fres == 0){
+                close(pipes[i][0]);
+                dup2(pipes[i][1],1);
+                close(pipes[i][1]);
+                exec_command(0, commands[i]);
+                _exit(0);
+            }
+            else{
+
+                close(pipes[i][1]);
+            }
+        }
+        else if(i == number_of_commands-1){
+            int fres = fork();
+            if(fres==0){
+                dup2(pipes[i-1][0],0);
+                close(pipes[i-1][0]);
+                exec_command(0, commands[i]);
+                _exit(0);
+            }
+            else{
+                close(pipes[i-1][0]);
+            }
+        }
+        else{
+            pipe(pipes[i]);
+            int fres = fork();
+            if(fres==0){
+                dup2(pipes[i-1][0],0);
+                close(pipes[i-1][0]);
+                
+                close(pipes[i][0]);
+                dup2(pipes[i][1],1);
+                close(pipes[i][1]);
+                exec_command(0, commands[i]);
+
+            }
+            else{
+                //printf("%s\n",commands[i]);
+                close(pipes[i-1][0]);
+                close(pipes[i][1]);
+            }
+        }
+        // trocar wait(NULL) 
+        for(int i = 0;i<number_of_commands;i++){
+            wait(NULL);
+        }
+    }
+
+    printf("Pipeline finished\n");
+}
+
 int main(int argc, char *argv[])
 {
 	
@@ -195,12 +276,9 @@ int main(int argc, char *argv[])
 			} else if(pid == 0) { // código do processo filho
 				if(pack.command_type == EXECUTE_COMMAND) {
 					close(pipefd[0]);
-					printf("if command_type == EXECUTE_COMMAND, VOU ENTRAR EM ADD_PACKAGE\n");
-					//add_package(&client_list, pack, id); // enviar antes ao pai e o pai é que faz o add package
 					printf("[processo_filho]: vou escrever no pipe\n");
 					write(pipefd[1], &pack, sizeof(Package));
 					close(pipefd[1]);
-					printf("[proc. filho]Vou dar exec_command\n");
 					char clientFifo[32];
 					sprintf(clientFifo, "tmp/fifo%d", pid_client);
 					int fdFifoOrchCli = open(clientFifo, O_WRONLY);
@@ -213,6 +291,7 @@ int main(int argc, char *argv[])
 						_exit(1);
 					}
 					close(fdFifoOrchCli);
+					printf("[proc. filho]Vou dar exec_command\n");
 					exec_command(N, pack.command);
 					return EXIT_SUCCESS;
 				} else if(pack.command_type == EXECUTE_STATUS) {
@@ -226,6 +305,24 @@ int main(int argc, char *argv[])
 					}
 					printf("Vou entrar na função de enviar status para o cliente\n");
 					send_status(client_list, fdFifoOrchCli);
+				} else if(pack.command_type == EXECUTE_MULT_COMMANDS) {
+					close(pipefd[0]);
+					write(pipefd[1], &pack, sizeof(Package));
+					close(pipefd[1]);
+					char clientFifo[32];
+					snprintf(clientFifo, 32, "tmp/fifo%d", pid_client);
+					int fdFifoOrchCli = open(clientFifo, O_WRONLY);
+					if(fdFifoOrchCli == -1) {
+						perror("open");
+						_exit(1);
+					}	
+					if(write(fdFifoOrchCli, &id, sizeof(int)) < 0) {
+						perror("write");
+						_exit(1);
+					}
+					close(fdFifoOrchCli);
+					exec_pipelining(pack.command);
+					return EXIT_SUCCESS;
 				}
 			} else { // processo pai
 				close(pipefd[1]);
@@ -233,12 +330,6 @@ int main(int argc, char *argv[])
 				int status;
 				printf("[processo-pai] vou ler do pipe\n");
 				read(pipefd[0], &pack_buffer, sizeof(Package));
-				printf("li do pipe um package com os seguinte dados:\n");
-				printf("pack_buffer->command: %s\n", pack_buffer.command);
-				printf("pack_buffer->command_type: %d\n", pack_buffer.command_type);
-				printf("pack_buffer->id: %d\n", pack_buffer.id);
-				printf("pack_buffer->pid: %d\n", pack_buffer.pid);
-				printf("pack_buffer->status: %d\n", pack_buffer.status);
 				close(pipefd[0]);
 				printf("vou adicionar o package ao client_list\n");
 				add_package(&client_list, pack_buffer, id);
