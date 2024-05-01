@@ -15,6 +15,8 @@
 #define EXECUTE_COMMAND 21
 #define EXECUTE_MULT_COMMANDS 22
 #define EXECUTE_STATUS 23
+#define MAX_ARGS 10
+#define MAX_CMDS 5
 
 typedef struct package {
     int id;
@@ -152,85 +154,77 @@ void exec_command(int N, char* command){
 	_exit(1);
 }
 
-void exec_pipelining(char* arg)
-{
-    char *command = strtok(arg, "|");
-    char **commands = malloc(sizeof(char *) * 2200);
+// Funçãp que divide string do comando em comandos separados
+int split_cmds(char *input, char *cmds[]) {
+	int i = 0;
+	char *token = strtok(input, "|");
+	while(token != NULL) {
+		cmds[i++] = token;
+		token = strtok(NULL, "|");
+	}
+	return i;
+}
 
-    int number_of_commands = 0;
+// função que divide cada comando nos seus argumentos
+void parse_args(char *cmd, char *args[]) {
+	int i = 0;
+	char *token = strtok(cmd, " ");
+	while(token != NULL) {
+		args[i++] = token;
+		token = strtok(NULL, " ");
+	}
+	args[i] = NULL;
+}
 
-    while(command != NULL)
-    {
-        if(*command == ' ')
-        {
-            command++;
-        }
-        //printf("%s\n",command);
-        commands[number_of_commands] = command;
-        number_of_commands++;
-        command =strtok(NULL, "|");
-    }
+void exec_pipelining(char *input) {
+	int num_cmds;
+	char *cmds[MAX_CMDS];
+	int pipes[MAX_CMDS][2];
 
-    //number_of_commands = 4;
+	num_cmds = split_cmds(input, cmds);
 
-    int pipes[number_of_commands-1][2];
+	for(int i = 0; i < num_cmds; i++) {
+		if(i < num_cmds - 1) {
+			if(pipe(pipes[i]) == -1) {
+				perror("pipe");
+				_exit(1);
+			}
+		}
 
-    //printf("%d\n",number_of_commands);
-    for(int i = 0;i<number_of_commands;i++){
-        
-        if(i==0){
-            pipe(pipes[0]);
-            int fres = fork();
-            if(fres == 0){
-                close(pipes[i][0]);
-                dup2(pipes[i][1],1);
-                close(pipes[i][1]);
-                exec_command(0, commands[i]);
-                _exit(0);
-            }
-            else{
+		int pid = fork();
+		if(pid < 0) {
+			perror("fork");
+			_exit(1);
+		}
 
-                close(pipes[i][1]);
-            }
-        }
-        else if(i == number_of_commands-1){
-            int fres = fork();
-            if(fres==0){
-                dup2(pipes[i-1][0],0);
-                close(pipes[i-1][0]);
-                exec_command(0, commands[i]);
-                _exit(0);
-            }
-            else{
-                close(pipes[i-1][0]);
-            }
-        }
-        else{
-            pipe(pipes[i]);
-            int fres = fork();
-            if(fres==0){
-                dup2(pipes[i-1][0],0);
-                close(pipes[i-1][0]);
-                
-                close(pipes[i][0]);
-                dup2(pipes[i][1],1);
-                close(pipes[i][1]);
-                exec_command(0, commands[i]);
+		if(pid == 0) { // processo filho
+			if(i > 0) {
+				dup2(pipes[i-1][0], STDIN_FILENO);
+				close(pipes[i-1][0]);
+				close(pipes[i-1][1]);
+			}
+			if(i < num_cmds - 1) {
+				dup2(pipes[i][1], STDOUT_FILENO);
+				close(pipes[i][0]);
+				close(pipes[i][1]);
+			}
 
-            }
-            else{
-                //printf("%s\n",commands[i]);
-                close(pipes[i-1][0]);
-                close(pipes[i][1]);
-            }
-        }
-        // trocar wait(NULL) 
-        for(int i = 0;i<number_of_commands;i++){
-            wait(NULL);
-        }
-    }
+			char *args[MAX_ARGS];
+			parse_args(cmds[i], args);
+			execvp(args[0], args);
+			perror("execvp");
+			_exit(1);
+		} else {
+			if(i > 0) {
+				close(pipes[i-1][0]);
+				close(pipes[i-1][1]);
+			}
+		}
+	}
 
-    printf("Pipeline finished\n");
+	for(int i = 0; i < num_cmds; i++) {
+		wait(NULL);
+	}
 }
 
 int main(int argc, char *argv[])
