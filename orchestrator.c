@@ -43,13 +43,16 @@ void update_package_status(Client **head, int status, int id) {
 				currentPackage->status = status;
 			}
 		}
+		current = current->next;
 	}
 }
 
 void add_package(Client **head, Package pack, int currentId) {
 	printf("Entrei no add_package!\n");
 	Client *current = *head;
+	int i = 0;
 	while(current != NULL) {
+		i++;
 		if(current->client_pid == pack.pid) {
 			Package *new_package = (Package *)malloc(sizeof(Package));
 			if(new_package == NULL) {
@@ -63,16 +66,11 @@ void add_package(Client **head, Package pack, int currentId) {
 			new_package->command_type = pack.command_type;
 			new_package->next = current->packages;
 			current->packages = new_package;
-			printf("Added package with the following values:\n");
-			printf("new_package->id: %d\n", new_package->id);
-			printf("new_package->pid: %d\n", new_package->pid);
-			printf("new_package->command: %s\n", new_package->command);
-			printf("new_package->command_type: %d\n", new_package->command_type);
-			printf("_________________________\n");
 			return;
 		}
 		current = current->next;
 	}
+	if(i == 0) printf("client_list given to add_package function is NULL\n");
 
 	// Caso não encontre um cliente com o PID correspondente, cria um novo cliente
 	Client *new_node = (Client *)malloc(sizeof(Client));
@@ -91,24 +89,20 @@ void add_package(Client **head, Package pack, int currentId) {
 	new_node->client_pid = pack.pid;
 	new_node->next = *head;
 	*head = new_node;
-	printf("Added package with the following values:\n");
-	printf("new_package->id: %d\n", new_package->id);
-	printf("new_package->pid: %d\n", new_package->pid);
-	printf("new_package->command: %s\n", new_package->command);
-	printf("new_package->command_type: %d\n", new_package->command_type);
-	printf("new_node->client_pid: %d\n", new_node->client_pid);
-	printf("_________________________\n");
 }
 
 // Função para imprimir todos os pacotes na lista de clientes
 void print_clients(Client *head) {
-    printf("\n_____________________\nLista de comandos recebidos:\n");
-	//printf("Entrei no print_client com um head com head->client_pid: %d\n", head->client_pid);
-    Client *current = head;
+    int i = 0;
+	printf("\n_____________________\nLista de comandos recebidos:\n");
+    //printf("Entrei na funcao print clients com a head -> %d\n", head->client_pid); // da seg fault
+	Client *current = head;
     while (current != NULL) {
         printf("Recebido do cliente com PID %d\n", current->client_pid);
+
 		Package *current_package = current->packages;
 		while(current_package != NULL) {
+			printf("Package inside the client with pid: %d\n", current->client_pid);
 			printf("Client PID: %d\n", current_package->pid);
 			printf("Command: %s\n", current_package->command);
 			printf("Id: %d\n", current_package->id);
@@ -116,10 +110,27 @@ void print_clients(Client *head) {
 			printf("Command Type: %d\n", current_package->command_type);
 			printf("____________________\n");
 			current_package = current_package->next;
+			i++;
 		}
         current = current->next;
 		printf("_______________________\n");
     }
+	printf("[print_clients] numero pacotes lidos: %d\n", i);
+}
+
+void send_status(Client *client_list, int fdFifoOrchCli) {
+	Client *current_client = client_list;
+	while(current_client != NULL) {
+		printf("[send_status] entrei no while exterior\n");
+		Package *current_package = current_client->packages;
+		while(current_package != NULL) {
+			printf("[send_status] entrei no while interior\n");
+			write(fdFifoOrchCli, current_package, sizeof(Package));
+			current_package = current_package->next;
+		}
+		current_client = current_client->next;
+	}
+	close(fdFifoOrchCli);
 }
 
 void exec_command(int N, char* command){
@@ -143,81 +154,111 @@ void exec_command(int N, char* command){
 
 int main(int argc, char *argv[])
 {
+	
 	int N = 0;
 	int id = 0; // variável usada para associar um id aos clientes
 	pid_t pid;
 
 	Client *client_list = NULL;
 
-	if(mkfifo("fifoOrchCli", 0666) == -1 || mkfifo("fifoCliOrch", 0666) == -1) {
+	if(mkfifo("tmp/fifoCliOrch", 0666) == -1) {
 		perror("mkfifo");
 		_exit(1);
 	}
 
-	int fdFifoOrchCli = open("fifoOrchCli", O_WRONLY);
-	int fdFifoCliOrch = open("fifoCliOrch", O_RDONLY);
+	int fdFifoCliOrch = open("tmp/fifoCliOrch", O_RDONLY);
 
 	while(1) {
-		//char buffer[MAX_SIZE + 1];
-		//read(fdFifoCliOrch, buffer, MAX_SIZE);
 		ssize_t bytes_read;
 		pid_t client_pid;
 		Package pack;
 		bytes_read = read(fdFifoCliOrch, &pack, sizeof(Package));
 		if(bytes_read > 0) {
+			pid_t pid_client = pack.pid;
 			printf("Estrutura do pack recebido: \n");
 			printf("pack.id -> %d\n", pack.id);
 			printf("pack.command -> %s\n", pack.command);
 			printf("pack.pid -> %d\n", pack.pid);
 			printf("pack.command_type -> %d\n", pack.command_type);
 			id++;
-			//add_package(&client_list, pack);
-			//print_clients(client_list);
+			
+			int pipefd[2];
+			if(pipe(pipefd) == -1) {
+				perror("pipe");
+				_exit(1);
+			}
+
 			pid_t pid = fork();
 			if(pid == -1) {
 				perror("fork");
 				_exit(1);
-			} else if(pid == 0) {
+			} else if(pid == 0) { // código do processo filho
 				if(pack.command_type == EXECUTE_COMMAND) {
+					close(pipefd[0]);
 					printf("if command_type == EXECUTE_COMMAND, VOU ENTRAR EM ADD_PACKAGE\n");
-					add_package(&client_list, pack, id);
+					//add_package(&client_list, pack, id); // enviar antes ao pai e o pai é que faz o add package
+					printf("[processo_filho]: vou escrever no pipe\n");
+					write(pipefd[1], &pack, sizeof(Package));
+					close(pipefd[1]);
+					printf("[proc. filho]Vou dar exec_command\n");
+					char clientFifo[32];
+					sprintf(clientFifo, "tmp/fifo%d", pid_client);
+					int fdFifoOrchCli = open(clientFifo, O_WRONLY);
+					if(fdFifoOrchCli == -1) {
+						perror("open");
+						_exit(1);
+					}
+					if(write(fdFifoOrchCli, &id, sizeof(int)) < 0) {
+						perror("write");
+						_exit(1);
+					}
+					close(fdFifoOrchCli);
 					exec_command(N, pack.command);
 					return EXIT_SUCCESS;
 				} else if(pack.command_type == EXECUTE_STATUS) {
-					// Enviar todos os pacotes de volta ao cliente
-					Client *current_client = client_list;
-					while(current_client != NULL) {
-						Package *current_package = current_client->packages;
-						while(current_package != NULL) {
-							// Mandar o pacote de volta para o cliente
-							if(write(fdFifoOrchCli, current_package, sizeof(Package)) < 0) {
-								perror("write");
-								_exit(1);
-							}
-							current_package = current_package->next;
-						}
-						current_client == current_client->next;
+					printf("Recebi um pedido de status do cliente\n");
+					char clientFifo[32];
+					sprintf(clientFifo, "tmp/fifo%d", pid_client);
+					int fdFifoOrchCli = open(clientFifo, O_WRONLY);
+					if(fdFifoOrchCli == -1) {
+						perror("open");
+						_exit(1);
 					}
+					printf("Vou entrar na função de enviar status para o cliente\n");
+					send_status(client_list, fdFifoOrchCli);
 				}
-			} else {
-				// processo pai
+			} else { // processo pai
+				close(pipefd[1]);
+				Package pack_buffer;
 				int status;
+				printf("[processo-pai] vou ler do pipe\n");
+				read(pipefd[0], &pack_buffer, sizeof(Package));
+				printf("li do pipe um package com os seguinte dados:\n");
+				printf("pack_buffer->command: %s\n", pack_buffer.command);
+				printf("pack_buffer->command_type: %d\n", pack_buffer.command_type);
+				printf("pack_buffer->id: %d\n", pack_buffer.id);
+				printf("pack_buffer->pid: %d\n", pack_buffer.pid);
+				printf("pack_buffer->status: %d\n", pack_buffer.status);
+				close(pipefd[0]);
+				printf("vou adicionar o package ao client_list\n");
+				add_package(&client_list, pack_buffer, id);
+				printf("A imprimir os pacotes dos clientes...\n");
+				print_clients(client_list);
+				printf("depois do print_clients\n");
 				waitpid(pid, &status, 0);
 				if(WIFEXITED(status) && WEXITSTATUS(status) == 0) {
-					printf("vou entrar no update_package_status\n");
-					print_clients(client_list);
-					printf("depois do print_clients\n");
+					// o client list só não é null para o processo filho
 					update_package_status(&client_list, EXECUTED, id);
 					printf("Estado do package alterado para EXECUTED!\n");
-					printf("A imprimir os pacotes dos clientes...\n");
 					print_clients(client_list);
-					printf("depois do print_clients\n");
+					printf("depois do print_clients após alteração do status do programa\n");
 				} else {
 					update_package_status(&client_list, EXECUTED_ERROR, id);
 					printf("Estado do package alterado para EXECUTED_ERROR!\n");
 					printf("A imprimir os pacotes dos clientes...\n");
 					print_clients(client_list);
 				}
+				close(pipefd[0]);
 			}
 		}
 	}
