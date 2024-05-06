@@ -135,9 +135,11 @@ void send_status(Client *client_list, int fdFifoOrchCli) {
 	close(fdFifoOrchCli);
 }
 
-void exec_command(int N, char* command){
+void exec_command(int N, char* command, int task_id){
 	pid_t pid;
-	int pids[N];
+	printf("Vou executar o comando %s\n", command);
+    printf("task_id -> %d\n", task_id);
+    int pids[N];
 	int i, status, res, j = 0;
 	char *cmd[N];
 
@@ -149,6 +151,25 @@ void exec_command(int N, char* command){
 		j++;
 	}
 	cmd[j] = NULL;
+    for(int k = 0; k < j; k++){
+        printf("cmd[%d] -> %s\n", k, cmd[k]);
+    }
+
+    char output_filename[32];
+    snprintf(output_filename, sizeof(output_filename), "output_folder/out%d.txt", task_id);
+    int fdOut = open(output_filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+
+    if(fdOut == -1){
+        perror("open");
+        _exit(1);
+    }
+
+    if(dup2(fdOut, STDOUT_FILENO) == -1 || dup2(fdOut, STDERR_FILENO) == -1){
+        perror("dup2");
+        _exit(1);
+    }
+    close(fdOut);
+
 	execvp(cmd[0], cmd);
 	perror("execvp");
 	_exit(1);
@@ -241,11 +262,12 @@ int main(int argc, char *argv[])
 	}
 
 	int fdFifoCliOrch = open("tmp/fifoCliOrch", O_RDONLY);
-	int fdOut = open("tmp/out.txt", O_WRONLY| O_CREAT | O_TRUNC, 0644);
+	/*
+    int fdOut = open("tmp/out.txt", O_WRONLY| O_CREAT | O_TRUNC, 0644);
 	if(fdOut == -1){
 		perror("open");
 		_exit(1);
-	}
+	} */
 	while(1) {
 		ssize_t bytes_read;
 		pid_t client_pid;
@@ -288,12 +310,13 @@ int main(int argc, char *argv[])
 					}
 					close(fdFifoOrchCli);
 					printf("[proc. filho]Vou dar exec_command\n");
-					if(dup2(fdOut,1) == -1){
+					/*
+                    if(dup2(fdOut,1) == -1){
 						perror("dup2");
 						_exit(1);
 					}
-					close(fdOut);
-					exec_command(N, pack.command);
+					close(fdOut); */
+					exec_command(N, pack.command, id);
 					return EXIT_SUCCESS;
 				} else if(pack.command_type == EXECUTE_STATUS) {
 					printf("Recebi um pedido de status do cliente\n");
@@ -321,11 +344,11 @@ int main(int argc, char *argv[])
 						perror("write");
 						_exit(1);
 					}
-					close(fdFifoOrchCli);
+					/*close(fdFifoOrchCli);
 					if(dup2(fdOut,1) == -1){
 						perror("dup2");
 						_exit(1);
-					}
+					}*/
 
 					exec_pipelining(pack.command);
 					return EXIT_SUCCESS;
@@ -357,9 +380,9 @@ int main(int argc, char *argv[])
 				}
 				close(pipefd[0]);
 			}
-		close(fdOut);
+		//close(fdOut);
 		}
-	close(fdOut);
+	//close(fdOut);
 	}
 
 	return 0;
