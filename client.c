@@ -195,12 +195,13 @@ int main(int argc, char *argv[]) {
             }
             receive_and_process_status(head);
             close(fdFifoOrchCli);
+            unlink(fifoName);
 
         } 
     } else {
         printf("Comando inserido é inválido!\n");
         return 0;
     }
-
+    close(fdFifoCliOrch);
     return 0;
 }

@@ -197,12 +197,21 @@ void parse_args(char *cmd, char *args[]) {
 	args[i] = NULL;
 }
 
-void exec_pipelining(char *input) {
+void exec_pipelining(char *input, int task_id) {
 	int num_cmds;
 	char *cmds[MAX_CMDS];
 	int pipes[MAX_CMDS][2];
 
 	num_cmds = split_cmds(input, cmds);
+
+	char output_filename[32];
+    snprintf(output_filename, sizeof(output_filename), "output_folder/out%d.txt", task_id);
+    int fdOut = open(output_filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+
+    if(fdOut == -1){
+        perror("open");
+        _exit(1);
+    }
 
 	for(int i = 0; i < num_cmds; i++) {
 		if(i < num_cmds - 1) {
@@ -230,6 +239,11 @@ void exec_pipelining(char *input) {
 				close(pipes[i][1]);
 			}
 			char *args[MAX_ARGS];
+			if(dup2(fdOut, STDOUT_FILENO) == -1 || dup2(fdOut, STDERR_FILENO) == -1){
+        		perror("dup2");
+        		_exit(1);
+    		}
+    		close(fdOut);
 			parse_args(cmds[i], args);
 			execvp(args[0], args);
 			perror("execvp");
@@ -245,6 +259,7 @@ void exec_pipelining(char *input) {
 	for(int i = 0; i < num_cmds; i++) {
 		wait(NULL);
 	}
+	close(fdOut);
 }
 
 int main(int argc, char *argv[])
@@ -350,7 +365,7 @@ int main(int argc, char *argv[])
 						_exit(1);
 					}*/
 
-					exec_pipelining(pack.command);
+					exec_pipelining(pack.command, id);
 					return EXIT_SUCCESS;
 				}
 			} else { // processo pai
@@ -384,6 +399,6 @@ int main(int argc, char *argv[])
 		}
 	//close(fdOut);
 	}
-
+	unlink("tmp/fifoCliOrch");
 	return 0;
 }
