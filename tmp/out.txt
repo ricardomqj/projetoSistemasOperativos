@@ -1,0 +1,12 @@
+total 92
+drwxrwxr-x 2 dudu dudu  4096 mai  3 12:38 bin
+-rwxrwxr-x 1 dudu dudu 16640 mai  6 13:33 client
+-rw-rw-r-- 1 dudu dudu  6557 mai  2 22:24 client.c
+drwxrwxr-x 2 dudu dudu  4096 mai  3 12:38 include
+-rw-rw-r-- 1 dudu dudu   373 mai  3 12:40 Makefile
+drwxrwxr-x 2 dudu dudu  4096 mai  3 12:38 obj
+-rwxrwxr-x 1 dudu dudu 21208 mai  6 20:00 orchestrator
+-rw-rw-r-- 1 dudu dudu  9609 mai  6 19:57 orchestrator.c
+-rw-rw-r-- 1 dudu dudu    27 abr 18 10:39 README.md
+drwxrwxr-x 2 dudu dudu  4096 mai  3 12:38 src
+drwxrwxr-x 2 dudu dudu  4096 mai  6 20:06 tmp

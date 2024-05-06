@@ -1,4 +1,4 @@
-#include <stdio.h>
+ #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -208,7 +208,6 @@ void exec_pipelining(char *input) {
 				close(pipes[i][0]);
 				close(pipes[i][1]);
 			}
-
 			char *args[MAX_ARGS];
 			parse_args(cmds[i], args);
 			execvp(args[0], args);
@@ -242,7 +241,11 @@ int main(int argc, char *argv[])
 	}
 
 	int fdFifoCliOrch = open("tmp/fifoCliOrch", O_RDONLY);
-
+	int fdOut = open("tmp/out.txt", O_WRONLY| O_CREAT | O_TRUNC, 0644);
+	if(fdOut == -1){
+		perror("open");
+		_exit(1);
+	}
 	while(1) {
 		ssize_t bytes_read;
 		pid_t client_pid;
@@ -262,7 +265,6 @@ int main(int argc, char *argv[])
 				perror("pipe");
 				_exit(1);
 			}
-
 			pid_t pid = fork();
 			if(pid == -1) {
 				perror("fork");
@@ -286,6 +288,11 @@ int main(int argc, char *argv[])
 					}
 					close(fdFifoOrchCli);
 					printf("[proc. filho]Vou dar exec_command\n");
+					if(dup2(fdOut,1) == -1){
+						perror("dup2");
+						_exit(1);
+					}
+					close(fdOut);
 					exec_command(N, pack.command);
 					return EXIT_SUCCESS;
 				} else if(pack.command_type == EXECUTE_STATUS) {
@@ -315,6 +322,11 @@ int main(int argc, char *argv[])
 						_exit(1);
 					}
 					close(fdFifoOrchCli);
+					if(dup2(fdOut,1) == -1){
+						perror("dup2");
+						_exit(1);
+					}
+
 					exec_pipelining(pack.command);
 					return EXIT_SUCCESS;
 				}
@@ -345,7 +357,9 @@ int main(int argc, char *argv[])
 				}
 				close(pipefd[0]);
 			}
+		close(fdOut);
 		}
+	close(fdOut);
 	}
 
 	return 0;
