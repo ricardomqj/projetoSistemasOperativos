@@ -1,24 +1,29 @@
 CC = gcc
 CFLAGS = -Wall -g -Iinclude
-LDFLAGS =
+#LDFLAGS = 
+
 
 all: folders orchestrator client
 
-orchestrator: bin/orchestrator
+orchestrator: orchestrator
 
-client: bin/client
+client: client
 
 folders:
-	@mkdir -p src include obj bin tmp
+	@mkdir -p src obj tmp output_folder
 
-bin/orchestrator: obj/orchestrator.o
-	$(CC) $(CFLAGS) $^ -o $@
+orchestrator: obj/orchestrator.o
+	$(CC) $(CFLAGS) obj/orchestrator.o -o orchestrator
 
-bin/client: obj/client.o
-	$(CC) $(CFLAGS) $^ -o $@
+obj/orchestrator.o: src/orchestrator.c
+	$(CC) $(CFLAGS) -c src/orchestrator.c -o obj/orchestrator.o
 
-obj/%.o: src/%.c
-	$(CC) $(CFLAGS) -c $< -o $@
+client: obj/client.o
+	$(CC) $(CFLAGS) obj/client.o -o client
+
+obj/client.o: src/client.c
+	$(CC) $(CFLAGS) -c src/client.c -o obj/client.o
 
 clean:
-	rm -f obj/* tmp/* bin/*
+	rm -f obj/* client orchestrator tmp/* output_folder/*
+

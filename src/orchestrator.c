@@ -1,4 +1,4 @@
- #include <stdio.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -278,7 +278,7 @@ int main(int argc, char *argv[])
 
 	int fdFifoCliOrch = open("tmp/fifoCliOrch", O_RDONLY);
 	/*
-    int fdOut = open("tmp/out.txt", O_WRONLY| O_CREAT | O_TRUNC, 0644);
+    int fdOut = open("out.txt", O_WRONLY| O_CREAT | O_TRUNC, 0644);
 	if(fdOut == -1){
 		perror("open");
 		_exit(1);
@@ -395,10 +395,8 @@ int main(int argc, char *argv[])
 				}
 				close(pipefd[0]);
 			}
-		//close(fdOut);
 		}
-	//close(fdOut);
 	}
-	unlink("tmp/fifoCliOrch");
+	unlink("fifoCliOrch");
 	return 0;
 }
