@@ -1,5 +1,7 @@
 #!/bin/bash
-# execução de comando simples e em pipelining
+pwd
+./orchestrator &
+
 # Executa comandos simples
 ./client execute 100 -u "echo Hello, World!"
 ./client execute 150 -u "date"

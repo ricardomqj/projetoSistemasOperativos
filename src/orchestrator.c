@@ -54,7 +54,6 @@ void update_package_status(Client **head, int status, int id, long timestamp) {
 }
 
 void add_package(Client **head, Package pack, int currentId) {
-	printf("Entrei no add_package!\n");
 	Client *current = *head;
 	int i = 0;
 	while(current != NULL) {
@@ -78,7 +77,6 @@ void add_package(Client **head, Package pack, int currentId) {
 		}
 		current = current->next;
 	}
-	if(i == 0) printf("client_list given to add_package function is NULL\n");
 
 	// Caso não encontre um cliente com o PID correspondente, cria um novo cliente
 	Client *new_node = (Client *)malloc(sizeof(Client));
@@ -155,13 +153,9 @@ void exec_command(int N, char* command, int task_id){
 		j++;
 	}
 	cmd[j] = NULL;
-    for(int k = 0; k < j; k++){
-        printf("cmd[%d] -> %s\n", k, cmd[k]);
-    }
 
     char output_filename[64];
     snprintf(output_filename, 64, "output_folder/out%d.txt", task_id);
-    printf("filename -> %s\n", output_filename);
 	int fdOut = open(output_filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
 
     if(fdOut == -1){

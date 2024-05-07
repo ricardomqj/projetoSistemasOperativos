@@ -86,10 +86,8 @@ int main(int argc, char *argv[]) {
 	}
 
     if(strcmp(argv[1], "execute") == 0) {
-        printf("Entrei no strcmp do EXECUTE!\n");
         if(strcmp(argv[3], "-u") == 0) {
             int expected_time = atoi(argv[2]);
-            printf("Entrei no strcmp do -u! dentro do strcmp do EXECUTE!\n");
             pid = fork();
             if(pid == -1) {
                 perror("fork");
@@ -124,7 +122,7 @@ int main(int argc, char *argv[]) {
                     perror("read");
                     _exit(1);
                 } 
-                printf("ID recebido: %d\n", id_received_buffer); 
+                printf("TASK %d Received\n", id_received_buffer); 
             } 
         } else if(strcmp(argv[3], "-p") == 0) {
             pid = fork();
@@ -159,7 +157,7 @@ int main(int argc, char *argv[]) {
                     perror("read");
                     _exit(1);
                 }
-                printf("ID recebido: %d\n", id_received_buffer);
+                printf("TASK %d Received\n", id_received_buffer);
             }
         } else {
             printf("Invalid option. Use '-u' or '-p'...\n");
@@ -167,7 +165,6 @@ int main(int argc, char *argv[]) {
         }
     } else if(strcmp(argv[1], "status") == 0) {
         pid = fork();
-        printf("Entrei no strcmp do STATUS!\n");
         if(pid == -1) {
             perror("fork");
             _exit(1);
@@ -179,7 +176,6 @@ int main(int argc, char *argv[]) {
             char fifoName[32];
             sprintf(fifoName, "tmp/fifo%d", pid_filho);
             mkfifo(fifoName, 0666);
-            printf("criei o fifo com nome %s\n", fifoName); 
             Package pack;
             pack.id = -1;
             pack.command_type = EXECUTE_STATUS;
@@ -193,7 +189,6 @@ int main(int argc, char *argv[]) {
                 _exit(1);
             }
             int fdFifoOrchCli = open(fifoName, O_RDONLY);
-            printf("vou ler os packs do orchestrator para o status\n");
             while(read(fdFifoOrchCli, &pkg, sizeof(Package)) > 0) {
                 new_pkg = malloc(sizeof(Package));
                 *new_pkg = pkg;

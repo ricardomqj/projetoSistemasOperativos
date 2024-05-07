@@ -1,5 +1,7 @@
 #!/bin/bash
 
+pwd
+
 for i in {1..10}
 do
    ./client execute 100 -u "echo Test $i" &

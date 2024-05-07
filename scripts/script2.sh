@@ -1,5 +1,8 @@
 #!/bin/bash
-#para testar varios clientes em simultaneo
+
+pwd
+./orchestrator &
+
 # Cliente 1 envia comandos
 ./client execute 100 -u "ls -l" &
 ./client execute 150 -p "cat /etc/passwd | grep root" &
