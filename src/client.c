@@ -23,6 +23,8 @@ typedef struct package {
 	pid_t pid;
     int status;
     int command_type;
+    int expected_time;
+    long timestamp;
     struct package *next;
 } Package;
 
@@ -38,7 +40,7 @@ void receive_and_process_status(Package *head) {
     printf("Completed:\n");
     while (current != NULL) {
         if(current->status == EXECUTED && current->command_type != EXECUTE_STATUS) {
-            printf("%d %s timestamp: (falta por)\n", current->id, current->command);
+            printf("%d %s timestamp: %ld ms\n", current->id, current->command, current->timestamp);
             found_executed = 1;
         }
         current = current->next;
@@ -86,6 +88,7 @@ int main(int argc, char *argv[]) {
     if(strcmp(argv[1], "execute") == 0) {
         printf("Entrei no strcmp do EXECUTE!\n");
         if(strcmp(argv[3], "-u") == 0) {
+            int expected_time = atoi(argv[2]);
             printf("Entrei no strcmp do -u! dentro do strcmp do EXECUTE!\n");
             pid = fork();
             if(pid == -1) {
@@ -101,8 +104,11 @@ int main(int argc, char *argv[]) {
                 Package pack;
                 strcpy(pack.command, argv[4]);
                 pack.pid = pid_filho;
+                pack.expected_time = expected_time;
                 pack.id = -1;
                 pack.command_type = EXECUTE_COMMAND;
+                pack.expected_time = expected_time;
+                pack.timestamp = -1;
                 pack.next = NULL;
                 if(write(fdFifoCliOrch, &pack, sizeof(Package)) < 0) {
                     perror("write");
@@ -122,6 +128,7 @@ int main(int argc, char *argv[]) {
             } 
         } else if(strcmp(argv[3], "-p") == 0) {
             pid = fork();
+            int expected_time = atoi(argv[2]);
             if(pid == -1) {
                 perror("fork");
                 _exit(1);
@@ -135,6 +142,8 @@ int main(int argc, char *argv[]) {
                 pack.pid = pid_filho;
                 pack.id = -1;
                 pack.command_type = EXECUTE_MULT_COMMANDS;
+                pack.timestamp = -1;
+                pack.expected_time = expected_time;
                 pack.next = NULL;
                 if(write(fdFifoCliOrch, &pack, sizeof(Package)) < 0) {
                     perror("write");
@@ -175,6 +184,8 @@ int main(int argc, char *argv[]) {
             pack.id = -1;
             pack.command_type = EXECUTE_STATUS;
             pack.pid = pid_filho;
+            pack.expected_time = -1;
+            pack.timestamp = -1;
             strcpy(pack.command, "STATUS_COMMAND");
             pack.status = NOT_EXECUTED;
             if(write(fdFifoCliOrch, &pack, sizeof(Package)) < 0) {
@@ -195,12 +206,13 @@ int main(int argc, char *argv[]) {
             }
             receive_and_process_status(head);
             close(fdFifoOrchCli);
+            unlink(fifoName);
 
         } 
     } else {
         printf("Comando inserido é inválido!\n");
         return 0;
     }
-
+    close(fdFifoCliOrch);
     return 0;
 }
