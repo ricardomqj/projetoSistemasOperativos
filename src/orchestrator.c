@@ -144,11 +144,7 @@ void send_status(Client *client_list, int fdFifoOrchCli) {
 }
 
 void exec_command(int N, char* command, int task_id){
-	pid_t pid;
-	printf("Vou executar o comando %s\n", command);
-    printf("task_id -> %d\n", task_id);
-    int pids[N];
-	int i, status, res, j = 0;
+	int j = 0;
 	char *cmd[N];
 
 	char *token = strtok(command, " ");
@@ -284,7 +280,6 @@ int main(int argc, char *argv[])
 	struct timeval start, end;
 	int N = 0;
 	int id = 0; // variável usada para associar um id aos clientes
-	pid_t pid;
 
 	Client *client_list = NULL;
 
@@ -302,7 +297,6 @@ int main(int argc, char *argv[])
 	} */
 	while(1) {
 		ssize_t bytes_read;
-		pid_t client_pid;
 		Package pack;
 		bytes_read = read(fdFifoCliOrch, &pack, sizeof(Package));
 		if(bytes_read > 0) {
