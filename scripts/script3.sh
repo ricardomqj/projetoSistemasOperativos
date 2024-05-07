@@ -1,6 +1,7 @@
 #!/bin/bash
 
 pwd
+./orchestrator &
 
 for i in {1..10}
 do
