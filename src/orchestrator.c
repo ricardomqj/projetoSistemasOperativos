@@ -133,10 +133,8 @@ void print_clients(Client *head) {
 void send_status(Client *client_list, int fdFifoOrchCli) {
 	Client *current_client = client_list;
 	while(current_client != NULL) {
-		printf("[send_status] entrei no while exterior\n");
 		Package *current_package = current_client->packages;
 		while(current_package != NULL) {
-			printf("[send_status] entrei no while interior\n");
 			write(fdFifoOrchCli, current_package, sizeof(Package));
 			current_package = current_package->next;
 		}
@@ -243,7 +241,7 @@ void exec_pipelining(char *command, int task_id) {
             }
         } else {
             char filename[256];
-            snprintf(filename, sizeof(filename), "output_folder/%d.txt", task_id);
+            snprintf(filename, sizeof(filename), "output_folder/out%d.txt", task_id);
             final_out_fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
             if (final_out_fd == -1) {
                 perror("open file");
@@ -323,7 +321,6 @@ int main(int argc, char *argv[])
 			} else if(pid == 0) { // código do processo filho
 				if(pack.command_type == EXECUTE_COMMAND) {
 					close(pipefd[0]);
-					printf("[processo_filho]: vou escrever no pipe\n");
 					write(pipefd[1], &pack, sizeof(Package));
 					close(pipefd[1]);
 					char clientFifo[32];
@@ -338,7 +335,6 @@ int main(int argc, char *argv[])
 						_exit(1);
 					}
 					close(fdFifoOrchCli);
-					printf("[proc. filho]Vou dar exec_command\n");
 					/*
                     if(dup2(fdOut,1) == -1){
 						perror("dup2");
@@ -348,7 +344,6 @@ int main(int argc, char *argv[])
 					exec_command(N, pack.command, id);
 					return EXIT_SUCCESS;
 				} else if(pack.command_type == EXECUTE_STATUS) {
-					printf("Recebi um pedido de status do cliente\n");
 					char clientFifo[32];
 					sprintf(clientFifo, "tmp/fifo%d", pid_client);
 					int fdFifoOrchCli = open(clientFifo, O_WRONLY);
@@ -356,7 +351,6 @@ int main(int argc, char *argv[])
 						perror("open");
 						_exit(1);
 					}
-					printf("Vou entrar na função de enviar status para o cliente\n");
 					send_status(client_list, fdFifoOrchCli);
 				} else if(pack.command_type == EXECUTE_MULT_COMMANDS) {
 					close(pipefd[0]);
@@ -373,11 +367,6 @@ int main(int argc, char *argv[])
 						perror("write");
 						_exit(1);
 					}
-					/*close(fdFifoOrchCli);
-					if(dup2(fdOut,1) == -1){
-						perror("dup2");
-						_exit(1);
-					}*/
 
 					exec_pipelining(pack.command, id);
 					return EXIT_SUCCESS;
@@ -389,14 +378,12 @@ int main(int argc, char *argv[])
 				read(pipefd[0], &pack_buffer, sizeof(Package));
 				close(pipefd[0]);
 				add_package(&client_list, pack_buffer, id);
-				printf("A imprimir os pacotes dos clientes...\n");
 				waitpid(pid, &status, 0);
 				if(WIFEXITED(status) && WEXITSTATUS(status) == 0) {
-					// o client list só não é null para o processo filho
 					gettimeofday(&end, NULL);
-					long seconds = (end.tv_sec - start.tv_sec); // Diferença de segundos
-					long micros = ((seconds * 1000000) + end.tv_usec) - (start.tv_usec); // Diferença total em microssegundos
-					long millis = micros / 1000; // Conversão para milissegundos
+					long seconds = (end.tv_sec - start.tv_sec); 
+					long micros = ((seconds * 1000000) + end.tv_usec) - (start.tv_usec); 
+					long millis = micros / 1000; 
 					update_package_status(&client_list, EXECUTED, id, millis);
 				
 				} else {
@@ -404,10 +391,8 @@ int main(int argc, char *argv[])
 				}
 				close(pipefd[0]);
 			}
-		//close(fdOut);
 		}
-	//close(fdOut);
 	}
-	//unlink("tmp/fifoCliOrch");
+	unlink("tmp/fifoCliOrch");
 	return 0;
 }
