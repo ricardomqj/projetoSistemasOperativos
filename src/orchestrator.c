@@ -282,6 +282,13 @@ int main(int argc, char *argv[])
 		_exit(1);
 	}
 
+	char *output_folder = strdup(argv[1]);
+	int parallel_tasks = atoi(argv[2]);
+	if(argc < 3) {
+		printf("Usage: ./orchestrator output_folder parallel-tasks\n");
+		_exit(1);
+	}
+
 	int fdFifoCliOrch = open("tmp/fifoCliOrch", O_RDONLY);
 	/*
     int fdOut = open("tmp/out.txt", O_WRONLY| O_CREAT | O_TRUNC, 0644);

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 pwd
-./orchestrator &
+#./orchestrator output_folder 0 &
 
 for i in {1..10}
 do

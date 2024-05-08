@@ -1,7 +1,7 @@
 #!/bin/bash
 
 pwd
-./orchestrator &
+#./orchestrator output_folder 0 &
 
 # Cliente 1 envia comandos
 ./client execute 100 -u "ls -l" &

@@ -1,6 +1,6 @@
 #!/bin/bash
 pwd
-./orchestrator &
+#./orchestrator output_folder 0 &
 
 # Executa comandos simples
 ./client execute 100 -u "echo Hello, World!"
